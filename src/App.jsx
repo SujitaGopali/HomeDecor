@@ -1,6 +1,3 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -13,6 +10,10 @@ import Gallery from './pages/Gallery';
 import About from './pages/About';
 import Contact from './pages/Contact';
 import { AuthProvider } from './context/AuthContext';
+import React from 'react';
+import { BrowserRouter as Router } from 'react-router-dom';
+import{ Routes, Route} from 'react-router-dom';
+import Navbar from './components/Navbar'; 
 
 function App() {
   return (

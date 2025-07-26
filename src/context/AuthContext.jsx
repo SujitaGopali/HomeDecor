@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { authAPI, apiUtils } from '../services/api';
 
 const AuthContext = createContext();
 
@@ -13,72 +14,99 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Check if user is logged in on app start
-    const savedUser = localStorage.getItem('homeDecorUser');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setLoading(false);
+    // Check if user is authenticated on app start
+    const checkAuth = async () => {
+      if (apiUtils.isAuthenticated()) {
+        try {
+          const response = await authAPI.getCurrentUser();
+          if (response.success) {
+            setUser(response.user);
+          }
+        } catch (error) {
+          console.error('Auth check failed:', error);
+          apiUtils.clearAuth();
+        }
+      }
+      setLoading(false);
+    };
+
+    checkAuth();
   }, []);
 
-  const login = (email, password, userType = 'user') => {
-    // Simulate API call
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        if (email && password) {
-          const userData = {
-            id: Date.now(),
-            name: userType === 'admin' ? 'Admin User' : 'John Doe',
-            email: email,
-            role: userType,
-            avatar: `https://images.pexels.com/photos/${userType === 'admin' ? '1222271' : '697509'}/pexels-photo-${userType === 'admin' ? '1222271' : '697509'}.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop`
-          };
-          setUser(userData);
-          localStorage.setItem('homeDecorUser', JSON.stringify(userData));
-          resolve(userData);
-        } else {
-          reject(new Error('Invalid credentials'));
-        }
-      }, 1000);
-    });
+  const login = async (email, password, userType = 'user') => {
+    try {
+      setError(null);
+      setLoading(true);
+      
+      const response = await authAPI.login({ email, password });
+      
+      if (response.success) {
+        setUser(response.user);
+        return response.user;
+      } else {
+        throw new Error(response.message || 'Login failed');
+      }
+    } catch (error) {
+      setError(error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const signup = (name, email, password, userType = 'user') => {
-    // Simulate API call
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        if (name && email && password) {
-          const userData = {
-            id: Date.now(),
-            name: name,
-            email: email,
-            role: userType,
-            avatar: `https://images.pexels.com/photos/697509/pexels-photo-697509.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop`
-          };
-          setUser(userData);
-          localStorage.setItem('homeDecorUser', JSON.stringify(userData));
-          resolve(userData);
-        } else {
-          reject(new Error('Invalid data'));
-        }
-      }, 1000);
-    });
+  const signup = async (name, email, password, userType = 'user') => {
+    try {
+      setError(null);
+      setLoading(true);
+      
+      const response = await authAPI.register({
+        name,
+        email,
+        password,
+        role: userType
+      });
+      
+      if (response.success) {
+        setUser(response.user);
+        return response.user;
+      } else {
+        throw new Error(response.message || 'Registration failed');
+      }
+    } catch (error) {
+      setError(error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('homeDecorUser');
+  const logout = async () => {
+    try {
+      await authAPI.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setUser(null);
+      apiUtils.clearAuth();
+    }
   };
 
-  const resetPassword = (email) => {
-    // Simulate API call
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({ message: 'Password reset email sent successfully' });
-      }, 1500);
-    });
+  const resetPassword = async (email) => {
+    try {
+      setError(null);
+      const response = await authAPI.forgotPassword(email);
+      return response;
+    } catch (error) {
+      setError(error.message);
+      throw error;
+    }
+  };
+
+  const updateUser = (userData) => {
+    setUser(prev => ({ ...prev, ...userData }));
   };
 
   const value = {
@@ -87,7 +115,10 @@ export const AuthProvider = ({ children }) => {
     signup,
     logout,
     resetPassword,
-    loading
+    updateUser,
+    loading,
+    error,
+    setError
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
